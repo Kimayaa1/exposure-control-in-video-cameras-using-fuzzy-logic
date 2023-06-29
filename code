@@ -1,0 +1,96 @@
+import cv2
+import numpy as np
+
+def calculate_ambient_light(image_path):
+    # Load the image
+    image = cv2.imread(image_path)
+
+    # Convert the image to grayscale
+    gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # Calculate the average intensity
+    average_intensity = np.mean(gray_image)
+
+    # Normalize the average intensity to the range of 0-100
+    al = (average_intensity / 255) * 100
+
+    return al
+
+
+def calculate_scene_contrast(image_path):
+    # Load the image
+    image = cv2.imread(image_path)
+
+    # Convert the image to grayscale
+    gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # Calculate the minimum and maximum pixel values
+    min_intensity = np.min(gray_image)
+    max_intensity = np.max(gray_image)
+
+    # Calculate the scene contrast
+    sc = (max_intensity - min_intensity) / 255 * 100
+
+    return sc
+
+# Provide the path to your image
+image_path = r'C:\Users\91800\OneDrive\Desktop\2.jpeg'
+
+# Calculate the ambient light of the image
+al = int(calculate_ambient_light(image_path))
+
+# Print the result
+print("Ambient Light:", al)
+
+# Calculate the scene contrast of the image
+sc = int(calculate_scene_contrast(image_path))
+
+# Print the result
+print("Scene Contrast:", sc)
+
+
+
+
+import skfuzzy as fuzz
+from skfuzzy import control as ctrl
+
+# Define fuzzy variables and membership functions
+ambient_light = ctrl.Antecedent(np.arange(0, 101, 1), 'ambient_light')
+scene_contrast = ctrl.Antecedent(np.arange(0, 101, 1), 'scene_contrast')
+exposure_adjustment = ctrl.Consequent(np.arange(-2, 3, 1), 'exposure_adjustment')
+
+ambient_light['dark'] = fuzz.trimf(ambient_light.universe, [0, 0, 40])
+ambient_light['moderate'] = fuzz.trimf(ambient_light.universe, [20, 50, 80])
+ambient_light['bright'] = fuzz.trimf(ambient_light.universe, [60, 100, 100])
+
+scene_contrast['low'] = fuzz.trimf(scene_contrast.universe, [0, 0, 40])
+scene_contrast['moderate'] = fuzz.trimf(scene_contrast.universe, [20, 50, 80])
+scene_contrast['high'] = fuzz.trimf(scene_contrast.universe, [60, 100, 100])
+
+exposure_adjustment['reduce'] = fuzz.trimf(exposure_adjustment.universe, [-2, -2, 0])
+exposure_adjustment['maintain'] = fuzz.trimf(exposure_adjustment.universe, [-1, 0, 1])
+exposure_adjustment['increase'] = fuzz.trimf(exposure_adjustment.universe, [0, 2, 2])
+
+# Define fuzzy rules
+rule1 = ctrl.Rule(ambient_light['dark'] & scene_contrast['low'], exposure_adjustment['increase'])
+rule2 = ctrl.Rule(ambient_light['dark'] & scene_contrast['moderate'], exposure_adjustment['maintain'])
+rule3 = ctrl.Rule(ambient_light['dark'] & scene_contrast['high'], exposure_adjustment['reduce'])
+rule4 = ctrl.Rule(ambient_light['moderate'], exposure_adjustment['maintain'])
+rule5 = ctrl.Rule(ambient_light['bright'], exposure_adjustment['reduce'])
+
+# Create fuzzy control system
+exposure_ctrl = ctrl.ControlSystem([rule1, rule2, rule3, rule4, rule5])
+exposure_simulation = ctrl.ControlSystemSimulation(exposure_ctrl)
+
+# Set input values
+exposure_simulation.input['ambient_light'] = al
+exposure_simulation.input['scene_contrast'] = sc
+
+# Compute fuzzy output
+exposure_simulation.compute()
+
+# Get the crisp output value
+exposure_adjustment_output = exposure_simulation.output['exposure_adjustment']
+
+# Print the crisp output value
+print("Exposure Adjustment:", exposure_adjustment_output)
